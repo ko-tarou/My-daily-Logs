@@ -1,37 +1,48 @@
-require 'fileutils'
+require 'tzinfo/data'
 
-# 設定
-TARGET_DIR = "C:/Users/tkota/project_k/Daily-Log/My-daily-Logs/AutoPush" # フォルダのパス
-COMMIT_MESSAGE = "Automated commit at #{Time.now}" # コミットメッセージ
+ENV['TZ'] = 'Asia/Tokyo'
 
-def git_push
-# カレントディレクトリを対象のフォルダに変更
-Dir.chdir(TARGET_DIR) do
-	# Git操作を順に実行
-	puts "Starting Git operations at #{Time.now}"
+TARGET_FOLDER = 'C:/Users/tkota/project_k/Daily-Log/My-daily-Logs/kota'
+BRANCH_NAME = 'daily-log'
+COMMIT_MESSAGE = 'auto'
+FILE_NAME_FORMAT = '%Y-%m-%d.md'
 
-	# git add
-	unless system('git add .')
-	raise "Error: Failed to add files"
-	end
-
-	# git commit
-	if system("git commit -m \"#{COMMIT_MESSAGE}\"")
-	puts "Changes committed successfully."
-	else
-	puts "No changes to commit."
-	end
-
-	# git push
-	unless system('git push')
-	raise "Error: Failed to push changes"
-	end
-
-	puts "Files pushed successfully at #{Time.now}"
-end
-rescue => e
-puts "An error occurred: #{e.message}"
+def run_command(command)
+  result = `#{command}`
+  unless $?.success?
+    puts "Command failed: #{command}"
+    puts "Error: #{result}"
+  end
 end
 
-# 実行
-git_push
+def create_daily_file(target_folder, file_name_format)
+  today = Time.now.getlocal("+09:00").strftime(file_name_format)
+  file_path = File.join(target_folder, today)
+
+  unless File.exist?(file_path)
+    File.open(file_path, 'w') do |file|
+      file.puts("# Log for #{today}")
+      file.puts("\n## Tasks\n\n- [ ] Example task 1\n- [ ] Example task 2\n")
+    end
+    puts "Created file: #{file_path}"
+  else
+    puts "File already exists: #{file_path}"
+  end
+
+  file_path
+end
+
+Dir.chdir(TARGET_FOLDER) do
+  puts "[#{Time.now}] Starting Git operations in #{TARGET_FOLDER}"
+
+  # ブランチを確認して切り替え
+  run_command("git checkout #{BRANCH_NAME}")
+
+  # ファイルを作成
+  file_path = create_daily_file(TARGET_FOLDER, FILE_NAME_FORMAT)
+
+  # Gitの操作
+  run_command("git add #{file_path}")
+  run_command("git commit -m \"#{COMMIT_MESSAGE}\"")
+  run_command("git push origin #{BRANCH_NAME}")
+end
